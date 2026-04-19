@@ -1,0 +1,12 @@
+langchain
+langchain-groq
+langchain-google-genai
+langchain-chroma
+chromadb
+sentence-transformers
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic-settings
+pypdf
+python-multipart

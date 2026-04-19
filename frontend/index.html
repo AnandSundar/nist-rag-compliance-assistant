@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIST 800-53 Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #0f0f10;
+            --surface: #1a1a1c;
+            --border: #2a2a2e;
+            --accent: #4f98a3;
+            --accent-hover: #5da8b3;
+            --text: #cdccca;
+            --text-muted: #8a8a8a;
+            --user-bubble: #4f98a3;
+            --assistant-bubble: #1a1a1c;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            height: 60px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .shield-icon {
+            width: 24px;
+            height: 24px;
+            fill: var(--accent);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            flex: 1;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: background 0.3s;
+        }
+
+        .status-dot.online {
+            background: #4ade80;
+            box-shadow: 0 0 8px #4ade80;
+        }
+
+        .status-dot.offline {
+            background: #f87171;
+        }
+
+        /* Wake banner */
+        .wake-banner {
+            background: #f59e0b;
+            color: #1a1a1c;
+            padding: 12px 20px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+
+        .wake-banner.show {
+            display: block;
+        }
+
+        /* Messages */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .message {
+            max-width: 80%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            align-self: flex-end;
+        }
+
+        .message.user .bubble {
+            background: var(--user-bubble);
+            color: white;
+            border-radius: 18px 18px 4px 18px;
+            padding: 12px 16px;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+        }
+
+        .message.assistant .bubble {
+            background: var(--assistant-bubble);
+            border: 1px solid var(--border);
+            border-radius: 18px 18px 18px 4px;
+            padding: 12px 16px;
+        }
+
+        .bubble {
+            word-wrap: break-word;
+            line-height: 1.5;
+        }
+
+        .bubble p {
+            margin-bottom: 8px;
+        }
+
+        .bubble p:last-child {
+            margin-bottom: 0;
+        }
+
+        .bubble strong {
+            font-weight: 600;
+        }
+
+        .bubble code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 0.9em;
+        }
+
+        .bubble pre {
+            background: rgba(0,0,0,0.3);
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+
+        .bubble pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .bubble ul, .bubble ol {
+            margin-left: 20px;
+            margin-bottom: 8px;
+        }
+
+        .bubble li {
+            margin: 6px 0;
+            line-height: 1.6;
+        }
+
+        .bubble h3 {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin: 12px 0 8px 0;
+            color: var(--accent);
+        }
+
+        .bubble h4 {
+            font-size: 1em;
+            font-weight: 600;
+            margin: 10px 0 6px 0;
+        }
+
+        /* Sources */
+        .sources {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .source-chip {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        /* Typing indicator */
+        .typing {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+        }
+
+        .typing span {
+            width: 8px;
+            height: 8px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+
+        .typing span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-8px); }
+        }
+
+        /* Input */
+        .input-area {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 20px;
+            flex-shrink: 0;
+        }
+
+        .input-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .input-wrapper textarea {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 14px;
+            resize: none;
+            min-height: 44px;
+            max-height: 120px;
+            transition: border-color 0.2s;
+        }
+
+        .input-wrapper textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            background: var(--accent);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .send-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        /* Starter questions */
+        .starter-questions {
+            max-width: 800px;
+            margin: 0 auto 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .starter-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 10px 16px;
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .starter-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+            .message {
+                max-width: 90%;
+            }
+
+            .starter-questions {
+                flex-direction: column;
+            }
+
+            .starter-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <svg class="shield-icon" viewBox="0 0 24 24">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+        </svg>
+        <h1>NIST 800-53 Assistant</h1>
+        <div class="status-dot" id="statusDot"></div>
+    </div>
+
+    <div class="wake-banner" id="wakeBanner">
+        Service is waking up, please wait...
+    </div>
+
+    <div class="messages" id="messages">
+        <div class="starter-questions" id="starterQuestions">
+            <button class="starter-btn">How many SR controls are there?</button>
+            <button class="starter-btn">What is least privilege?</button>
+            <button class="starter-btn">Explain AC-1 in simple terms</button>
+            <button class="starter-btn">What controls apply to incident response?</button>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <div class="input-wrapper">
+            <textarea id="userInput" placeholder="Ask about NIST 800-53 controls..." rows="1"></textarea>
+            <button class="send-btn" id="sendBtn" disabled>
+                <svg viewBox="0 0 24 24">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const messagesContainer = document.getElementById('messages');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const statusDot = document.getElementById('statusDot');
+        const wakeBanner = document.getElementById('wakeBanner');
+        const starterQuestions = document.getElementById('starterQuestions');
+
+        let isOnline = false;
+
+        async function checkHealth() {
+            try {
+                const response = await fetch('/api/health');
+                isOnline = response.ok;
+                statusDot.classList.toggle('online', isOnline);
+                statusDot.classList.toggle('offline', !isOnline);
+                wakeBanner.classList.remove('show');
+                return isOnline;
+            } catch {
+                isOnline = false;
+                statusDot.classList.remove('online');
+                statusDot.classList.add('offline');
+                wakeBanner.classList.add('show');
+                return false;
+            }
+        }
+
+        function addMessage(content, isUser, sources = []) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.innerHTML = renderMarkdown(content);
+
+            messageDiv.appendChild(bubble);
+
+            if (!isUser && sources.length > 0) {
+                const sourcesDiv = document.createElement('div');
+                sourcesDiv.className = 'sources';
+                sources.forEach(source => {
+                    const chip = document.createElement('span');
+                    chip.className = 'source-chip';
+                    chip.textContent = source.control_id;
+                    sourcesDiv.appendChild(chip);
+                });
+                messageDiv.appendChild(sourcesDiv);
+            }
+
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function addTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message assistant typing-indicator';
+            typingDiv.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+            messagesContainer.appendChild(typingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return typingDiv;
+        }
+
+        function removeTypingIndicator(indicator) {
+            indicator.remove();
+        }
+
+        function renderMarkdown(text) {
+            let result = text;
+
+            // Handle headers first
+            result = result.replace(/##\s+([^\n]+)/g, '<h3>$1</h3>');
+            result = result.replace(/###\s+([^\n]+)/g, '<h4>$1</h4>');
+
+            // Handle bold and italic
+            result = result.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>');
+            result = result.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+
+            // Handle code blocks
+            result = result.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+            result = result.replace(/`([^`]+?)`/g, '<code>$1</code>');
+
+            // Split by double newlines to preserve paragraphs
+            let paragraphs = result.split(/\n\s*\n/);
+
+            let html = '';
+            for (let para of paragraphs) {
+                para = para.trim();
+                if (!para) continue;
+
+                // Check if this is a list paragraph (contains + at start of lines)
+                if (para.includes('\n+ ') || para.startsWith('+ ')) {
+                    let lines = para.split('\n');
+                    let listHtml = '<ul>';
+                    let inList = false;
+
+                    for (let line of lines) {
+                        line = line.trim();
+                        if (line.startsWith('+ ')) {
+                            listHtml += '<li>' + line.substring(2) + '</li>';
+                            inList = true;
+                        } else if (inList && line) {
+                            listHtml += '<li>' + line + '</li>';
+                        }
+                    }
+                    listHtml += '</ul>';
+                    html += listHtml;
+                } else {
+                    // Regular paragraph
+                    html += '<p>' + para + '</p>';
+                }
+            }
+
+            return html;
+        }
+
+        async function sendMessage(question) {
+            if (!question.trim() || !isOnline) return;
+
+            addMessage(question, true);
+            userInput.value = '';
+            sendBtn.disabled = true;
+            starterQuestions.style.display = 'none';
+
+            const typingIndicator = addTypingIndicator();
+            let currentResponse = '';
+            let currentSources = [];
+
+            try {
+                const response = await fetch('/api/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question, stream: true })
+                });
+
+                if (!response.ok) throw new Error('Request failed');
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                removeTypingIndicator(typingIndicator);
+
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message assistant';
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                messageDiv.appendChild(bubble);
+                messagesContainer.appendChild(messageDiv);
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+
+                                if (data.type === 'start') {
+                                    currentSources = data.sources || [];
+                                } else if (data.type === 'token') {
+                                    currentResponse += data.content;
+                                    bubble.innerHTML = renderMarkdown(currentResponse);
+                                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                                } else if (data.type === 'end') {
+                                    if (currentSources.length > 0) {
+                                        const sourcesDiv = document.createElement('div');
+                                        sourcesDiv.className = 'sources';
+                                        currentSources.forEach(source => {
+                                            const chip = document.createElement('span');
+                                            chip.className = 'source-chip';
+                                            chip.textContent = source.control_id;
+                                            sourcesDiv.appendChild(chip);
+                                        });
+                                        messageDiv.appendChild(sourcesDiv);
+                                    }
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                }
+
+            } catch (error) {
+                removeTypingIndicator(typingIndicator);
+                addMessage('Sorry, there was an error processing your request.', false);
+            }
+
+            sendBtn.disabled = false;
+        }
+
+        userInput.addEventListener('input', () => {
+            sendBtn.disabled = !userInput.value.trim();
+        });
+
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage(userInput.value);
+            }
+        });
+
+        sendBtn.addEventListener('click', () => {
+            sendMessage(userInput.value);
+        });
+
+        document.querySelectorAll('.starter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                sendMessage(btn.textContent);
+            });
+        });
+
+        checkHealth();
+        setInterval(checkHealth, 30000);
+    </script>
+</body>
+</html>
